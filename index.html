@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>训练计划 - 膝盖调整版</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:#0f0f0f;color:#e0e0e0;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:20px 20px 12px;text-align:center;position:sticky;top:0;z-index:100;border-bottom:1px solid #333}
+.header h1{font-size:1.4rem;color:#fff;margin-bottom:8px}
+.tab-bar{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:20px;border:1px solid #444;background:#1a1a2e;color:#aaa;cursor:pointer;font-size:.85rem;transition:all .2s}
+.tab.active{background:#e94560;color:#fff;border-color:#e94560}
+.tab:hover{border-color:#e94560;color:#fff}
+
+/* Progress bar */
+.progress-bar{height:3px;background:#2a2a3e;position:relative}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,#e94560,#ff8c00);transition:width .4s ease;border-radius:0 2px 2px 0}
+
+/* Warning bar */
+.warning-bar{background:#2a1a1a;border-bottom:1px solid #5a2020;padding:10px 16px;font-size:.78rem;color:#ff6b6b;display:flex;align-items:center;gap:8px}
+.warning-bar .icon{font-size:1.1rem}
+
+/* Exercise list */
+.exercise-list{padding:12px 16px 180px}
+.exercise-card{background:#1a1a2e;border-radius:12px;margin-bottom:10px;overflow:hidden;border:1px solid #2a2a3e;transition:all .3s}
+.exercise-card.active{border-color:#e94560;box-shadow:0 0 20px rgba(233,69,96,.15)}
+.exercise-card.done{opacity:.5;border-color:#2a6e3f}
+.exercise-card.done .card-header{background:#1a3a2a}
+
+.card-header{display:flex;align-items:center;padding:14px 16px;cursor:pointer;gap:12px}
+.phase-tag{font-size:.8rem;padding:3px 10px;border-radius:10px;font-weight:600;white-space:nowrap}
+.phase-tag.热身{background:#1b3a4b;color:#4ecdc4}
+.phase-tag.正式{background:#3a1b4b;color:#c77dff}
+.phase-tag.循环{background:#3a1b4b;color:#c77dff}
+.phase-tag.拉伸{background:#3a4b1b;color:#a8e06c}
+.phase-tag.休息{background:#4b3a1b;color:#ffa94d}
+
+.card-title{flex:1;min-width:0}
+.card-title .name{font-size:1.35rem;font-weight:600;color:#fff}
+.card-title .meta{font-size:1rem;color:#aaa;margin-top:2px}
+.card-title .meta span{margin-right:10px}
+
+.card-timer{font-size:2rem;font-weight:700;color:#e94560;font-variant-numeric:tabular-nums;min-width:80px;text-align:right}
+.card-timer.counting{animation:pulse 1s infinite}
+.card-timer.set-done{color:#2a6e3f}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+.set-indicator{font-size:1rem;color:#ffa94d;margin-top:2px}
+
+.expand-icon{color:#555;font-size:.8rem;transition:transform .3s}
+.exercise-card.expanded .expand-icon{transform:rotate(180deg)}
+
+.card-detail{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.exercise-card.expanded .card-detail{max-height:800px}
+.detail-content{padding:0 16px 16px}
+.weight-info{background:#16213e;border-radius:8px;padding:12px 16px;margin-bottom:12px;font-size:1.1rem;color:#7ec8e3}
+.tips{font-size:1.3rem;line-height:1.9;color:#ccc}
+.demo-link{display:inline-block;margin-top:12px;padding:8px 16px;border-radius:8px;background:#16213e;color:#4ecdc4;font-size:.95rem;text-decoration:none;border:1px solid #2a4a5e}
+.demo-link:hover{background:#1b3a4b;border-color:#4ecdc4}
+
+/* Control bar */
+.control-bar{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(180deg,transparent,#0f0f0f 20%);padding:16px 16px 20px;z-index:100}
+.control-inner{background:#1a1a2e;border-radius:16px;padding:14px;border:1px solid #2a2a3e;display:flex;align-items:center;justify-content:center;gap:12px;max-width:500px;margin:0 auto}
+.btn{padding:12px 24px;border-radius:12px;border:none;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.btn-prev{background:#2a2a3e;color:#aaa}
+.btn-prev:hover:not(:disabled){background:#3a3a4e;color:#fff}
+.btn-start{background:#e94560;color:#fff;min-width:120px}
+.btn-start:hover{background:#d63851}
+.btn-start.running{background:#ff8c00}
+.btn-next{background:#2a2a3e;color:#aaa}
+.btn-next:hover:not(:disabled){background:#3a3a4e;color:#fff}
+.btn-skip{background:transparent;color:#666;font-size:.75rem;padding:8px 12px}
+.btn-skip:hover{color:#e94560}
+
+/* Session timer */
+.session-info{text-align:center;margin-bottom:6px}
+.session-timer{font-size:1.6rem;font-weight:700;color:#4ecdc4;font-variant-numeric:tabular-nums}
+.session-label{font-size:.7rem;color:#666;margin-top:2px}
+
+/* Rest overlay */
+.rest-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:200;justify-content:center;align-items:center;flex-direction:column}
+.rest-overlay.show{display:flex}
+.rest-text{font-size:1.2rem;color:#888;margin-bottom:8px}
+.rest-countdown{font-size:5rem;font-weight:700;color:#4ecdc4;font-variant-numeric:tabular-nums}
+.rest-adjust{display:flex;align-items:center;gap:16px;margin-top:16px}
+.rest-adjust button{width:56px;height:56px;border-radius:50%;border:2px solid #4ecdc4;background:transparent;color:#4ecdc4;font-size:1.1rem;cursor:pointer;transition:all .2s}
+.rest-adjust button:hover{background:#4ecdc4;color:#0f0f0f}
+.rest-adjust .adj-label{color:#666;font-size:.8rem}
+.rest-skip{margin-top:20px;padding:12px 32px;border-radius:12px;border:2px solid #4ecdc4;background:transparent;color:#4ecdc4;font-size:1rem;cursor:pointer;transition:all .2s}
+.rest-skip:hover{background:#4ecdc4;color:#0f0f0f}
+
+/* Top-right buttons */
+.top-btns{position:fixed;top:16px;right:16px;z-index:101;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.top-btn{background:#2a2a3e;border:1px solid #444;border-radius:20px;padding:6px 14px;color:#aaa;font-size:.75rem;cursor:pointer}
+.top-btn:hover{border-color:#e94560;color:#fff}
+
+/* Modal base */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:300;justify-content:center;align-items:center;padding:20px}
+.modal-overlay.show{display:flex}
+.modal-content{background:#1a1a2e;border-radius:16px;padding:24px;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;border:1px solid #2a2a3e}
+.modal-content h2{font-size:1.1rem;margin-bottom:16px}
+.modal-close{margin-top:16px;padding:10px 24px;border-radius:10px;border:none;background:#e94560;color:#fff;cursor:pointer;font-size:.85rem}
+
+/* Notes modal */
+.notes-content h2{color:#ff6b6b}
+.notes-content table{width:100%;border-collapse:collapse;font-size:.82rem}
+.notes-content td{padding:8px;border-bottom:1px solid #2a2a3e;color:#bbb}
+.notes-content td:first-child{color:#ff6b6b;font-weight:600;width:90px;white-space:nowrap}
+
+/* Complete modal */
+.complete-content h2{color:#4ecdc4}
+.complete-content .stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}
+.complete-content .stat-box{background:#16213e;border-radius:10px;padding:14px;text-align:center}
+.complete-content .stat-box .val{font-size:1.6rem;font-weight:700;color:#4ecdc4}
+.complete-content .stat-box .lbl{font-size:.75rem;color:#888;margin-top:4px}
+.complete-content .log-section{margin-top:16px}
+.complete-content .log-section label{font-size:.85rem;color:#aaa;display:block;margin-bottom:6px}
+.complete-content .log-section textarea{width:100%;background:#16213e;border:1px solid #2a4a5e;border-radius:8px;padding:10px;color:#e0e0e0;font-size:.82rem;resize:vertical;min-height:80px}
+.complete-content .log-section textarea:focus{outline:none;border-color:#4ecdc4}
+
+/* Log modal */
+.log-content h2{color:#ffa94d}
+.log-entries{max-height:50vh;overflow-y:auto}
+.log-entry{background:#16213e;border-radius:8px;padding:12px;margin-bottom:8px}
+.log-entry .log-date{font-size:.75rem;color:#888}
+.log-entry .log-day{font-size:.85rem;font-weight:600;color:#fff;margin:4px 0}
+.log-entry .log-text{font-size:.82rem;color:#bbb;white-space:pre-wrap}
+.log-empty{text-align:center;color:#666;padding:30px;font-size:.85rem}
+
+/* Editor modal */
+.editor-content h2{color:#c77dff}
+.editor-content .plan-name{background:#16213e;border:1px solid #2a4a5e;border-radius:8px;padding:10px;color:#e0e0e0;font-size:.9rem;width:100%;margin-bottom:12px}
+.editor-content .day-list{margin-bottom:12px}
+.editor-content .day-item{background:#16213e;border-radius:8px;padding:12px;margin-bottom:8px}
+.editor-content .day-item .day-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.editor-content .day-item .day-name{font-size:.95rem;font-weight:600;color:#fff}
+.editor-content .small-btn{padding:4px 10px;border-radius:8px;border:1px solid #444;background:#2a2a3e;color:#aaa;font-size:.75rem;cursor:pointer}
+.editor-content .small-btn:hover{border-color:#e94560;color:#fff}
+.editor-content .small-btn.danger{border-color:#5a2020;color:#ff6b6b}
+.editor-content .small-btn.danger:hover{background:#5a2020;color:#fff}
+.editor-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.editor-actions .modal-close{margin-top:0}
+
+/* Responsive */
+@media(max-width:400px){.tab{padding:6px 12px;font-size:.75rem}.card-header{padding:12px}.btn{padding:10px 18px;font-size:.85rem}.top-btns{top:auto;bottom:190px;right:8px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>🏋️ 膝盖调整版训练计划</h1>
+<div class="tab-bar" id="tabBar"></div>
+</div>
+
+<div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
+
+<div class="warning-bar" id="warningBar">
+<span class="icon">⚠️</span>
+<span id="warningText">半月板损伤：深蹲→半蹲45°，弓箭步→侧卧抬腿，禁止跳跃。锐痛即停！</span>
+</div>
+
+<div class="exercise-list" id="exerciseList"></div>
+
+<div class="control-bar">
+<div class="session-info">
+<div class="session-timer" id="sessionTimer">00:00</div>
+<div class="session-label">训练总时长</div>
+</div>
+<div class="control-inner">
+<button class="btn btn-prev" id="btnPrev" onclick="navExercise(-1, false)">◀</button>
+<button class="btn btn-start" id="btnStart" onclick="toggleTimer()">开始</button>
+<button class="btn btn-next" id="btnNext" onclick="navExercise(1, false)">▶</button>
+</div>
+<div style="text-align:center;margin-top:6px;display:flex;justify-content:center;gap:12px">
+<button class="btn-skip" onclick="resetAll()">重置全部</button>
+<button class="btn-skip" onclick="openLog()">📓 训练日志</button>
+</div>
+</div>
+
+<div class="rest-overlay" id="restOverlay">
+<div class="rest-text">组间休息</div>
+<div class="rest-countdown" id="restCountdown">30</div>
+<div class="rest-adjust">
+<button onclick="adjustRest(-10)">-10s</button>
+<span class="adj-label">调整休息时间</span>
+<button onclick="adjustRest(10)">+10s</button>
+</div>
+<button class="rest-skip" onclick="skipRest()">跳过休息</button>
+</div>
+
+<div class="top-btns">
+<button class="top-btn" onclick="toggleModal('notesModal')">📋 注意</button>
+<button class="top-btn" onclick="openEditor()">✏️ 编辑</button>
+<button class="top-btn" onclick="exportPlan()">📤 导出</button>
+<button class="top-btn" onclick="importPlan()">📥 导入</button>
+</div>
+
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
+
+<!-- Notes Modal -->
+<div class="modal-overlay" id="notesModal">
+<div class="modal-content notes-content">
+<h2>⚠️ 右膝半月板损伤 - 注意事项</h2>
+<table id="notesTable"></table>
+<button class="modal-close" onclick="toggleModal('notesModal')">知道了</button>
+</div>
+</div>
+
+<!-- Complete Modal -->
+<div class="modal-overlay" id="completeModal">
+<div class="modal-content complete-content">
+<h2>🎉 训练完成！</h2>
+<div class="stats">
+<div class="stat-box"><div class="val" id="completeDuration">00:00</div><div class="lbl">训练时长</div></div>
+<div class="stat-box"><div class="val" id="completeCount">0</div><div class="lbl">完成动作</div></div>
+</div>
+<div class="log-section">
+<label>📝 记录今日训练感受（使用的重量、膝盖感受等）：</label>
+<textarea id="completeLog" placeholder="例：哑铃卧推用了8kg，膝盖今天感觉不错，半蹲没有不适..."></textarea>
+</div>
+<button class="modal-close" onclick="saveLogAndClose()">保存日志并关闭</button>
+</div>
+</div>
+
+<!-- Log Modal -->
+<div class="modal-overlay" id="logModal">
+<div class="modal-content log-content">
+<h2>📓 训练日志</h2>
+<div class="log-entries" id="logEntries"></div>
+<button class="modal-close" onclick="toggleModal('logModal')">关闭</button>
+</div>
+</div>
+
+<!-- Editor Modal -->
+<div class="modal-overlay" id="editorModal">
+<div class="modal-content editor-content">
+<h2>✏️ 编辑训练计划</h2>
+<div>
+<label style="font-size:.85rem;color:#aaa">计划名称</label>
+<input class="plan-name" id="editorPlanName" placeholder="我的训练计划">
+</div>
+<div class="day-list" id="editorDayList"></div>
+<div class="editor-actions">
+<button class="small-btn" onclick="editorAddDay()">➕ 添加训练日</button>
+<button class="modal-close" onclick="saveEditor()">💾 保存</button>
+<button class="small-btn" onclick="toggleModal('editorModal')">取消</button>
+</div>
+</div>
+</div>
+
+<script>
+// ===== PLAN DATA =====
+let PLAN = null;
+const PLAN_KEY = 'knee_workout_plan';
+const LOG_KEY = 'knee_workout_logs';
+const STATE_KEY = 'knee_workout_state';
+const DEFAULT_PLAN_URL = 'plans/default.json';
+
+// ===== STATE =====
+let currentDay = '';
+let currentIndex = 0;
+let timerInterval = null;
+let timerSeconds = 0;
+let timerRunning = false;
+let sessionSeconds = 0;
+let sessionInterval = null;
+let currentSet = 1;
+let totalSets = 1;
+let exercisePhase = 'work';
+let doneExercises = new Set();
+let currentRound = 1;
+let totalRounds = 1;
+let restRemaining = 0;
+let restInterval = null;
+let restCallback = null;
+
+// ===== AUDIO =====
+let audioCtx = null;
+function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+}
+function beep(freq=880, ms=150) {
+    try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; gain.gain.value = 0.3;
+        osc.start(); osc.stop(ctx.currentTime + ms/1000);
+    } catch(e) {}
+}
+function beepSequence(count, freq=880) {
+    for (let i = 0; i < count; i++) setTimeout(() => beep(freq, 150), i * 250);
+}
+
+// ===== PLAN STORAGE =====
+function savePlan() {
+    try { localStorage.setItem(PLAN_KEY, JSON.stringify(PLAN)); } catch(e) {}
+}
+function loadPlan() {
+    try {
+        const raw = localStorage.getItem(PLAN_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return null;
+}
+
+async function loadDefaultPlan() {
+    try {
+        const resp = await fetch(DEFAULT_PLAN_URL);
+        if (resp.ok) return await resp.json();
+    } catch(e) {}
+    return null;
+}
+
+// ===== LOG STORAGE =====
+function getLogs() {
+    try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch(e) { return []; }
+}
+function addLog(entry) {
+    try {
+        const logs = getLogs();
+        logs.unshift(entry);
+        if (logs.length > 30) logs.length = 30;
+        localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+    } catch(e) {}
+}
+
+// ===== SESSION STATE =====
+function saveState() {
+    try {
+        localStorage.setItem(STATE_KEY, JSON.stringify({
+            currentDay, currentIndex, currentSet, totalSets,
+            currentRound, totalRounds, exercisePhase,
+            doneExercises: Array.from(doneExercises), sessionSeconds,
+            timestamp: Date.now()
+        }));
+    } catch(e) {}
+}
+function loadState() {
+    try {
+        const raw = localStorage.getItem(STATE_KEY);
+        if (!raw) return false;
+        const s = JSON.parse(raw);
+        if (Date.now() - s.timestamp > 4*60*60*1000) { localStorage.removeItem(STATE_KEY); return false; }
+        currentDay = s.currentDay; currentIndex = s.currentIndex;
+        currentSet = s.currentSet; totalSets = s.totalSets;
+        currentRound = s.currentRound || 1; totalRounds = s.totalRounds || 1;
+        exercisePhase = s.exercisePhase;
+        doneExercises = new Set(s.doneExercises); sessionSeconds = s.sessionSeconds;
+        return true;
+    } catch(e) { return false; }
+}
+function clearState() { try { localStorage.removeItem(STATE_KEY); } catch(e) {} }
+
+// ===== HELPERS =====
+function getDays() { return PLAN ? Object.keys(PLAN.days) : []; }
+function getExercises() { return (PLAN && PLAN.days[currentDay]) ? PLAN.days[currentDay].exercises : []; }
+function getInitialSeconds(ex) {
+    if (ex.duration > 0) return ex.duration;
+    const match = ex.sets.match(/(\d+)组x(\d+)/);
+    if (match) return parseInt(match[2]) * 3;
+    return 45;
+}
+function formatTime(s) {
+    const m = Math.floor(s/60), sec = s%60;
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+// ===== INIT =====
+async function init() {
+    // Load plan: localStorage > fetch default
+    PLAN = loadPlan();
+    if (!PLAN) {
+        PLAN = await loadDefaultPlan();
+        if (PLAN) savePlan();
+    }
+    if (!PLAN) {
+        document.getElementById('exerciseList').innerHTML = '<div style="text-align:center;padding:60px;color:#666">⚠️ 无法加载训练计划，请导入一个计划文件</div>';
+        return;
+    }
+
+    applyPlanMeta();
+
+    const restored = loadState();
+    if (!restored || !PLAN.days[currentDay]) {
+        currentDay = getDays()[0] || '';
+        currentIndex = 0;
+    }
+    totalRounds = (PLAN.days[currentDay] && PLAN.days[currentDay].rounds) || 1;
+
+    renderTabs(); renderExercises(); updateControls(); updateProgress();
+    startSessionTimer();
+    if (restored) document.getElementById('sessionTimer').textContent = formatTime(sessionSeconds);
+}
+
+function applyPlanMeta() {
+    if (!PLAN) return;
+    document.querySelector('.header h1').textContent = '🏋️ ' + (PLAN.name || '训练计划');
+    if (PLAN.warning) {
+        document.getElementById('warningText').textContent = PLAN.warning;
+        document.getElementById('warningBar').style.display = '';
+    } else {
+        document.getElementById('warningBar').style.display = 'none';
+    }
+    if (PLAN.notes) {
+        document.getElementById('notesTable').innerHTML = PLAN.notes.map(n =>
+            `<tr><td>${n.label}</td><td>${n.value}</td></tr>`
+        ).join('');
+    }
+}
+
+// ===== RENDER =====
+function renderTabs() {
+    const bar = document.getElementById('tabBar');
+    bar.innerHTML = '';
+    getDays().forEach(day => {
+        const tab = document.createElement('div');
+        tab.className = 'tab' + (day === currentDay ? ' active' : '');
+        tab.textContent = day;
+        tab.onclick = () => switchDay(day);
+        bar.appendChild(tab);
+    });
+}
+
+function switchDay(day) {
+    currentDay = day;
+    totalRounds = (PLAN.days[day] && PLAN.days[day].rounds) || 1;
+    currentRound = 1; currentIndex = 0;
+    stopTimer(); timerSeconds = 0; currentSet = 1; exercisePhase = 'work';
+    doneExercises.clear();
+    renderTabs(); renderExercises(); updateControls(); updateProgress(); saveState();
+}
+
+function renderExercises() {
+    const list = document.getElementById('exerciseList');
+    const exercises = getExercises();
+    list.innerHTML = '';
+    exercises.forEach((ex, i) => {
+        const done = doneExercises.has(i), active = i === currentIndex;
+        const card = document.createElement('div');
+        card.className = 'exercise-card' + (active ? ' active' : '') + (done ? ' done' : '');
+        card.id = 'card-' + i;
+        const timerDisplay = active ? formatTime(getInitialSeconds(ex)) : (done ? '✓' : '');
+        const setInfo = active && totalSets > 1 ? `<div class="set-indicator">第${currentSet}组 / 共${totalSets}组</div>` : '';
+        const roundInfo = active && totalRounds > 1 ? `<div class="set-indicator">🔄 第${currentRound}轮 / 共${totalRounds}轮</div>` : '';
+        const demoLink = ex.demo ? `<a class="demo-link" href="${ex.demo}" target="_blank" rel="noopener">🎬 观看动作示范</a>` : '';
+        card.innerHTML = `
+            <div class="card-header" onclick="toggleExpand(${i})">
+                <span class="phase-tag ${ex.phase}">${ex.phase}</span>
+                <div class="card-title">
+                    <div class="name">${ex.name}</div>
+                    <div class="meta"><span>${ex.sets}</span>${ex.weight ? '<span>' + ex.weight + '</span>' : ''}</div>
+                    ${setInfo}${roundInfo}
+                </div>
+                <div class="card-timer" id="timer-${i}">${timerDisplay}</div>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="card-detail"><div class="detail-content">
+                ${ex.weight ? '<div class="weight-info">🏋️ ' + ex.weight + '</div>' : ''}
+                <div class="tips">${ex.tips}</div>
+                ${demoLink}
+            </div></div>`;
+        list.appendChild(card);
+    });
+    if (exercises[currentIndex]) {
+        const card = document.getElementById('card-' + currentIndex);
+        if (card) card.classList.add('expanded');
+    }
+    scrollToCurrent();
+}
+
+function toggleExpand(i) { document.getElementById('card-' + i).classList.toggle('expanded'); }
+
+function updateControls() {
+    const exercises = getExercises();
+    document.getElementById('btnPrev').disabled = currentIndex <= 0;
+    document.getElementById('btnNext').disabled = currentIndex >= exercises.length - 1;
+    const btn = document.getElementById('btnStart');
+    if (timerRunning) { btn.textContent = '暂停'; btn.className = 'btn btn-start running'; }
+    else { btn.textContent = doneExercises.has(currentIndex) ? '已完成 ✓' : '开始'; btn.className = 'btn btn-start'; }
+}
+
+function updateProgress() {
+    const total = getExercises().length, done = doneExercises.size;
+    document.getElementById('progressFill').style.width = (total > 0 ? Math.round(done/total*100) : 0) + '%';
+}
+
+// ===== TIMER =====
+function toggleTimer() {
+    if (timerRunning) { stopTimer(); beep(440, 80); }
+    else { beep(880, 100); startTimer(); }
+}
+
+function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    const ex = getExercises()[currentIndex];
+    if (!ex) return;
+    if (timerSeconds <= 0) {
+        timerSeconds = getInitialSeconds(ex);
+        const match = ex.sets.match(/(\d+)组/);
+        totalSets = match ? parseInt(match[1]) : 1;
+        if (currentSet < 1) currentSet = 1;
+        exercisePhase = 'work';
+    }
+    timerRunning = true; updateControls();
+    timerInterval = setInterval(() => {
+        timerSeconds--; updateTimerDisplay();
+        if (timerSeconds <= 3 && timerSeconds > 0) beep(660, 100);
+        if (timerSeconds <= 0) handlePhaseComplete();
+    }, 1000);
+}
+
+function handlePhaseComplete() {
+    const ex = getExercises()[currentIndex];
+    if (exercisePhase === 'work') {
+        const isDurationBased = ex.duration > 0;
+        const match = ex.sets.match(/(\d+)组/);
+        const hasMultipleSets = match && parseInt(match[1]) > 1;
+        if (isDurationBased || !hasMultipleSets) { completeExercise(ex); }
+        else {
+            if (currentSet < totalSets) {
+                currentSet++;
+                showRestOverlay(ex.rest || 30, `第${currentSet}组 / 共${totalSets}组`, () => {
+                    timerSeconds = getInitialSeconds(ex); exercisePhase = 'work';
+                    renderExercises(); startTimer();
+                });
+            } else { completeExercise(ex); }
+        }
+    }
+}
+
+function completeExercise(ex) {
+    if (ex.phase === '休息' && totalRounds > 1) {
+        if (currentRound < totalRounds) {
+            currentRound++; beepSequence(3, 880);
+            showRestOverlay(ex.duration || 60, `🔄 准备第${currentRound}轮 / 共${totalRounds}轮`, () => {
+                const exercises = getExercises();
+                const first = exercises.findIndex(e => e.phase === '循环');
+                if (first >= 0) currentIndex = first;
+                currentSet = 1; timerSeconds = 0;
+                renderExercises(); updateControls(); updateProgress(); saveState();
+                startTimer();
+            });
+            return;
+        }
+    }
+    markDone(); beepSequence(2, 880);
+    const exercises = getExercises();
+    if (currentIndex < exercises.length - 1) {
+        const nextEx = exercises[currentIndex + 1];
+        if (ex.groupRest && ex.groupRest > 0) {
+            showRestOverlay(ex.groupRest, `下一动作: ${nextEx.name}`, () => { navExercise(1); });
+        } else { navExercise(1); }
+    } else { stopTimer(); showComplete(); }
+}
+
+function showRestOverlay(seconds, labelText, callback) {
+    stopTimer();
+    const overlay = document.getElementById('restOverlay'), countdown = document.getElementById('restCountdown');
+    overlay.classList.add('show'); restRemaining = seconds; countdown.textContent = restRemaining;
+    restCallback = callback;
+    overlay.querySelector('.rest-text').textContent = labelText || '组间休息';
+    restInterval = setInterval(() => {
+        restRemaining--; countdown.textContent = restRemaining;
+        if (restRemaining <= 3 && restRemaining > 0) beep(660, 100);
+        if (restRemaining <= 0) {
+            clearInterval(restInterval); restInterval = null;
+            overlay.classList.remove('show'); beep(880, 200);
+            if (restCallback) restCallback();
+        }
+    }, 1000);
+    saveState();
+}
+
+function adjustRest(delta) {
+    if (restRemaining <= 0) return;
+    restRemaining = Math.max(5, restRemaining + delta);
+    document.getElementById('restCountdown').textContent = restRemaining;
+}
+
+function skipRest() {
+    if (restInterval) clearInterval(restInterval); restInterval = null;
+    document.getElementById('restOverlay').classList.remove('show'); beep(880, 200);
+    if (restCallback) restCallback();
+}
+
+function markDone() {
+    doneExercises.add(currentIndex);
+    const card = document.getElementById('card-' + currentIndex);
+    if (card) { card.classList.add('done'); card.querySelector('.card-timer').textContent = '✓'; }
+    updateProgress(); saveState();
+}
+
+function stopTimer() { clearInterval(timerInterval); timerRunning = false; updateControls(); }
+
+function updateTimerDisplay() {
+    const el = document.getElementById('timer-' + currentIndex);
+    if (el) { el.textContent = formatTime(timerSeconds); el.className = 'card-timer counting'; }
+}
+
+function navExercise(dir, autoStart) {
+    stopTimer(); timerSeconds = 0; currentSet = 1; exercisePhase = 'work';
+    const exercises = getExercises();
+    currentIndex = Math.max(0, Math.min(exercises.length - 1, currentIndex + dir));
+    renderExercises(); updateControls(); saveState();
+    if (autoStart !== false) startTimer();
+}
+
+function scrollToCurrent() {
+    const card = document.getElementById('card-' + currentIndex);
+    if (card) card.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function startSessionTimer() {
+    sessionInterval = setInterval(() => {
+        sessionSeconds++;
+        document.getElementById('sessionTimer').textContent = formatTime(sessionSeconds);
+        if (sessionSeconds % 30 === 0) saveState();
+    }, 1000);
+}
+
+function resetAll() {
+    stopTimer(); timerSeconds = 0; currentSet = 1; exercisePhase = 'work';
+    currentRound = 1; doneExercises.clear(); sessionSeconds = 0; currentIndex = 0;
+    renderExercises(); updateControls(); updateProgress(); clearState();
+}
+
+// ===== MODALS =====
+function toggleModal(id) { document.getElementById(id).classList.toggle('show'); }
+
+function showComplete() {
+    document.getElementById('completeDuration').textContent = formatTime(sessionSeconds);
+    document.getElementById('completeCount').textContent = doneExercises.size;
+    document.getElementById('completeLog').value = '';
+    beepSequence(5, 1047); toggleModal('completeModal');
+}
+
+function saveLogAndClose() {
+    const t = document.getElementById('completeLog').value.trim();
+    if (t) addLog({ date: new Date().toLocaleString('zh-CN'), day: currentDay, duration: formatTime(sessionSeconds), count: doneExercises.size, text: t });
+    toggleModal('completeModal'); resetAll();
+}
+
+function openLog() {
+    const logs = getLogs(), container = document.getElementById('logEntries');
+    container.innerHTML = logs.length === 0 ? '<div class="log-empty">暂无训练日志</div>' :
+        logs.map(l => `<div class="log-entry"><div class="log-date">${l.date}</div><div class="log-day">${l.day} · ${l.duration} · ${l.count}个动作</div><div class="log-text">${l.text}</div></div>`).join('');
+    toggleModal('logModal');
+}
+
+// ===== IMPORT / EXPORT =====
+function exportPlan() {
+    if (!PLAN) return;
+    const blob = new Blob([JSON.stringify(PLAN, null, 2)], {type: 'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'workout-plan.json';
+    a.click(); URL.revokeObjectURL(a.href);
+}
+
+function importPlan() { document.getElementById('importFile').click(); }
+
+function handleImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const data = JSON.parse(reader.result);
+            if (!data.days) throw new Error('Invalid plan format');
+            PLAN = data; savePlan(); applyPlanMeta();
+            currentDay = getDays()[0] || ''; currentIndex = 0; currentRound = 1;
+            totalRounds = (PLAN.days[currentDay] && PLAN.days[currentDay].rounds) || 1;
+            doneExercises.clear(); resetAll();
+            renderTabs(); renderExercises(); updateControls(); updateProgress();
+        } catch(err) { alert('导入失败：' + err.message); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+}
+
+// ===== EDITOR =====
+let editorData = null;
+
+function openEditor() {
+    if (!PLAN) return;
+    editorData = JSON.parse(JSON.stringify(PLAN)); // deep clone
+    document.getElementById('editorPlanName').value = editorData.name || '';
+    renderEditorDays();
+    toggleModal('editorModal');
+}
+
+function renderEditorDays() {
+    const container = document.getElementById('editorDayList');
+    const days = Object.keys(editorData.days);
+    container.innerHTML = days.map((day, di) => `
+        <div class="day-item">
+            <div class="day-header">
+                <span class="day-name">${day}</span>
+                <div>
+                    <button class="small-btn" onclick="editorEditDay(${di})">编辑动作</button>
+                    <button class="small-btn danger" onclick="editorDeleteDay(${di})">删除</button>
+                </div>
+            </div>
+            <div style="font-size:.78rem;color:#888">${editorData.days[day].exercises.length}个动作 · ${editorData.days[day].rounds}轮</div>
+        </div>`).join('');
+}
+
+function editorAddDay() {
+    const name = prompt('训练日名称（如"周五 核心日"）：');
+    if (!name) return;
+    editorData.days[name] = { rounds: 1, exercises: [] };
+    renderEditorDays();
+}
+
+function editorDeleteDay(di) {
+    const days = Object.keys(editorData.days);
+    if (days.length <= 1) { alert('至少保留一个训练日'); return; }
+    if (!confirm('确定删除「' + days[di] + '」？')) return;
+    delete editorData.days[days[di]];
+    renderEditorDays();
+}
+
+function editorEditDay(di) {
+    const dayKey = Object.keys(editorData.days)[di];
+    const dayData = editorData.days[dayKey];
+    // Simple: open the plan JSON in a textarea for editing this day
+    const json = JSON.stringify(dayData, null, 2);
+    const newJson = prompt(`编辑「${dayKey}」的JSON数据：\n（修改后粘贴回来）`, json);
+    if (!newJson) return;
+    try {
+        editorData.days[dayKey] = JSON.parse(newJson);
+        renderEditorDays();
+    } catch(e) { alert('JSON格式错误：' + e.message); }
+}
+
+function saveEditor() {
+    editorData.name = document.getElementById('editorPlanName').value.trim() || '训练计划';
+    PLAN = editorData; savePlan(); applyPlanMeta();
+    // Reset to first day if current day no longer exists
+    if (!PLAN.days[currentDay]) { currentDay = getDays()[0] || ''; currentIndex = 0; }
+    totalRounds = (PLAN.days[currentDay] && PLAN.days[currentDay].rounds) || 1;
+    renderTabs(); renderExercises(); updateControls(); updateProgress();
+    toggleModal('editorModal');
+}
+
+// ===== START =====
+init();
+</script>
+</body>
+</html>
