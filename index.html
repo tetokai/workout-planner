@@ -962,8 +962,19 @@ function saveEditor() {
 // ===== PWA =====
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then(() => {
+        navigator.serviceWorker.register('sw.js').then(reg => {
             console.log('SW registered');
+            // Force update check on every page load
+            reg.update();
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // New SW installed, reload to activate
+                        window.location.reload();
+                    }
+                });
+            });
         }).catch(() => {});
     });
 }
