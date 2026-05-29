@@ -59,7 +59,8 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
 .tab { font-size: 0.82rem; font-weight: 500; letter-spacing: -0.005em }
 .card-title .name { font-size: clamp(1.05rem, 3.5vw, 1.25rem); font-weight: 600; letter-spacing: -0.01em }
 .card-timer { font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums }
-.tips { font-size: 0.92rem; line-height: 1.75; color: var(--text-secondary) }
+.tips { font-size: 0.92rem; line-height: 1.75; color: var(--text-secondary); transition: font-size 0.3s ease }
+.exercise-card.active .tips { font-size: clamp(1.05rem, 3.5vw, 1.25rem) }
 
 /* ---------- Header & Tab Bar ---------- */
 .header {
