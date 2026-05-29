@@ -1,0 +1,30 @@
+{
+  "name": "workout-planner",
+  "version": "1.0.0",
+  "description": "一个带计时功能的训练计划网页应用",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python -m http.server 8000",
+    "build": "echo 'No build step needed for static site'",
+    "lint": "eslint *.js",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "workout",
+    "training",
+    "planner",
+    "timer",
+    "fitness"
+  ],
+  "author": "tetokai",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tetokai/workout-planner.git"
+  },
+  "homepage": "https://github.com/tetokai/workout-planner#readme"
+}
