@@ -362,7 +362,7 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
   border-radius: var(--radius-full); padding: 5px 12px; cursor: pointer;
 }
 .custom-fields {
-  display: grid; grid-template-columns: minmax(180px, 2fr) 1fr 1fr; gap: 10px;
+  display: grid; grid-template-columns: minmax(180px, 2fr) repeat(3, 1fr); gap: 10px;
 }
 .custom-field { display: flex; flex-direction: column; gap: 6px }
 .custom-field label { font-size: 0.75rem; color: var(--text-muted) }
@@ -433,7 +433,7 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
   .top-btns { top: auto; bottom: 190px; right: 8px }
   .phase-tag { font-size: 0.7rem; padding: 2px 8px }
   .exercise-list { padding-bottom: 180px }
-  .custom-fields { grid-template-columns: 1fr 1fr }
+  .custom-fields { grid-template-columns: repeat(3, 1fr) }
   .custom-field.action-field { grid-column: 1 / -1 }
   .custom-actions { bottom: 10px }
 }
@@ -744,9 +744,48 @@ function getExerciseLibrary() {
     return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 }
 
+const EXERCISE_CATEGORY_ORDER = [
+    '热身与活动', '核心与腰背', '下肢与臀腿', '背部与拉', '胸部与推',
+    '肩部', '手臂', '全身', '拉伸与恢复', '休息', '其他'
+];
+
+function getExerciseCategory(ex) {
+    const name = String(ex.name || '');
+    const phase = String(ex.phase || '');
+    if (phase === '休息' || /休息|放松/.test(name)) return '休息';
+    if (/猫牛|猫驼|平板|鸟狗|死虫|腹|核心|躯干|腰部|舒腰|扭转|侧弯|婴儿式/.test(name)) return '核心与腰背';
+    if (/深蹲|半蹲|浅蹲|臀|腿|髋|膝|踝|提踵|踏步|开合跳|弓步|下肢/.test(name)) return '下肢与臀腿';
+    if (/划船|面拉|背阔|背部/.test(name)) return '背部与拉';
+    if (/俯卧撑|卧推|飞鸟|推胸|胸部/.test(name)) return '胸部与推';
+    if (/肩|侧平举|手臂画圈/.test(name)) return '肩部';
+    if (/弯举|二头|三头|臂屈伸/.test(name)) return '手臂';
+    if (/全身|四肢/.test(name)) return '全身';
+    if (phase === '拉伸' || /拉伸|伸展/.test(name)) return '拉伸与恢复';
+    if (phase === '热身') return '热身与活动';
+    return '其他';
+}
+
+function getExerciseGroups(library = getExerciseLibrary()) {
+    const groups = new Map(EXERCISE_CATEGORY_ORDER.map(category => [category, []]));
+    library.forEach(ex => groups.get(getExerciseCategory(ex)).push(ex));
+    return EXERCISE_CATEGORY_ORDER
+        .map(category => ({ category, exercises: groups.get(category) }))
+        .filter(group => group.exercises.length > 0);
+}
+
+function getSetsFromExercise(ex) {
+    if (Number(ex.setsCount) > 0) return Math.floor(Number(ex.setsCount));
+    const match = String(ex.sets || '').match(/(\d+)\s*(?:组|套)/);
+    return match ? Number(match[1]) : 1;
+}
+
 function getRepsFromExercise(ex) {
     if (Number(ex.reps) > 0) return Number(ex.reps);
-    const numbers = String(ex.sets || '').match(/\d+/g);
+    const setText = String(ex.sets || '');
+    const repMatches = Array.from(setText.matchAll(/(\d+)\s*次/g));
+    if (repMatches.length > 0) return Number(repMatches[repMatches.length - 1][1]);
+    if (Number(ex.duration) > 0) return 0;
+    const numbers = setText.match(/\d+/g);
     return numbers ? Number(numbers[numbers.length - 1]) : 1;
 }
 
@@ -756,6 +795,7 @@ function makeCustomDraft(ex) {
     return {
         libraryName: inLibrary ? ex.name : '__custom__',
         name: ex.name || '',
+        setsCount: getSetsFromExercise(ex),
         reps: getRepsFromExercise(ex),
         duration: Math.max(0, Number(ex.duration) || 0)
     };
@@ -774,10 +814,11 @@ function customAddExercise() {
     customDraft.push(first ? {
         libraryName: first.name,
         name: first.name,
+        setsCount: getSetsFromExercise(first),
         reps: getRepsFromExercise(first),
         duration: Math.max(0, Number(first.duration) || 0)
     } : {
-        libraryName: '__custom__', name: '', reps: 10, duration: 30
+        libraryName: '__custom__', name: '', setsCount: 1, reps: 10, duration: 30
     });
     renderExercises();
 }
@@ -796,6 +837,7 @@ function customSelectExercise(index, name) {
         const template = getExerciseLibrary().find(ex => ex.name === name);
         if (template) {
             item.name = template.name;
+            item.setsCount = getSetsFromExercise(template);
             item.reps = getRepsFromExercise(template);
             item.duration = Math.max(0, Number(template.duration) || 0);
         }
@@ -806,6 +848,7 @@ function customSelectExercise(index, name) {
 function customUpdateField(index, field, value) {
     if (!customDraft[index]) return;
     if (field === 'name') customDraft[index].name = value;
+    else if (field === 'setsCount') customDraft[index][field] = Math.max(1, Math.floor(Number(value) || 1));
     else customDraft[index][field] = Math.max(0, Number(value) || 0);
 }
 
@@ -817,9 +860,12 @@ function renderCustomBuilder(container) {
     const wrapper = document.createElement('div');
     wrapper.className = 'custom-builder';
     const rows = customDraft.map((item, index) => {
-        const options = library.map(ex =>
-            `<option value="${escapeHTML(ex.name)}"${item.libraryName === ex.name ? ' selected' : ''}>${escapeHTML(ex.name)}</option>`
-        ).join('');
+        const options = getExerciseGroups(library).map(group => `
+            <optgroup label="${escapeHTML(group.category)}">
+                ${group.exercises.map(ex =>
+                    `<option value="${escapeHTML(ex.name)}"${item.libraryName === ex.name ? ' selected' : ''}>${escapeHTML(ex.name)}</option>`
+                ).join('')}
+            </optgroup>`).join('');
         const customName = item.libraryName === '__custom__' ? `
             <div class="custom-field custom-name-field">
                 <label>自定义动作名称</label>
@@ -841,6 +887,11 @@ function renderCustomBuilder(container) {
                         </select>
                     </div>
                     <div class="custom-field">
+                        <label>组数</label>
+                        <input type="number" min="1" step="1" value="${item.setsCount}"
+                            oninput="customUpdateField(${index}, 'setsCount', this.value)">
+                    </div>
+                    <div class="custom-field">
                         <label>次数</label>
                         <input type="number" min="0" step="1" value="${item.reps}"
                             oninput="customUpdateField(${index}, 'reps', this.value)">
@@ -858,7 +909,7 @@ function renderCustomBuilder(container) {
     wrapper.innerHTML = `
         <div class="custom-intro">
             <h2>自定义训练</h2>
-            <p>按顺序添加动作。可以从动作库选择，也可以添加自定义动作；次数用于记录，时长用于倒计时。</p>
+            <p>动作库已按训练部位分类。每个动作可设置组数、次数和倒计时时长；按次数训练时，时长可填 0。</p>
         </div>
         ${rows || '<div class="custom-empty">还没有动作，点击下方“添加动作”开始创建。</div>'}
         <div class="custom-actions">
@@ -879,6 +930,7 @@ function saveCustomWorkout() {
         const template = item.libraryName === '__custom__'
             ? null
             : library.find(ex => ex.name === item.libraryName);
+        const setsCount = Math.max(1, Math.floor(Number(item.setsCount) || 1));
         const reps = Math.max(0, Number(item.reps) || 0);
         const duration = Math.max(0, Number(item.duration) || 0);
         if (reps === 0 && duration === 0) {
@@ -890,8 +942,11 @@ function saveCustomWorkout() {
             tips: '按自己的节奏完成，保持动作稳定。', demo: ''
         };
         exercise.name = name;
+        exercise.setsCount = setsCount;
         exercise.reps = reps;
-        exercise.sets = reps > 0 ? reps + '次' : duration + '秒';
+        exercise.sets = reps > 0
+            ? setsCount + '组x' + reps + '次'
+            : setsCount + '组x' + duration + '秒';
         exercise.duration = duration;
         exercises.push(exercise);
     }
@@ -1065,10 +1120,9 @@ function startTimer() {
 function handlePhaseComplete() {
     const ex = getExercises()[currentIndex];
     if (exercisePhase === 'work') {
-        const isDurationBased = ex.duration > 0;
         const match = ex.sets.match(/(\d+)组/);
         const hasMultipleSets = match && parseInt(match[1]) > 1;
-        if (isDurationBased || !hasMultipleSets) { completeExercise(ex); }
+        if (!hasMultipleSets) { completeExercise(ex); }
         else {
             if (currentSet < totalSets) {
                 currentSet++;
