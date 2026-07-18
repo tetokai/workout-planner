@@ -337,6 +337,69 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
 .editor-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px }
 .editor-actions .modal-close { margin-top: 0 }
 
+/* Custom workout page */
+.custom-builder {
+  width: min(760px, 100%); margin: 0 auto;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.custom-intro {
+  background: var(--bg-surface); border-radius: var(--radius-md);
+  padding: 16px; color: var(--text-secondary); box-shadow: var(--shadow-sm);
+}
+.custom-intro h2 { color: var(--text-primary); font-size: 1.05rem; margin-bottom: 6px }
+.custom-intro p { font-size: 0.82rem; line-height: 1.6 }
+.custom-row {
+  background: var(--bg-surface); border-radius: var(--radius-md);
+  padding: 14px; box-shadow: var(--shadow-sm);
+}
+.custom-row-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px;
+}
+.custom-row-title { font-size: 0.82rem; color: var(--text-muted); font-weight: 600 }
+.custom-remove {
+  border: none; background: var(--danger-bg); color: var(--danger);
+  border-radius: var(--radius-full); padding: 5px 12px; cursor: pointer;
+}
+.custom-fields {
+  display: grid; grid-template-columns: minmax(180px, 2fr) 1fr 1fr; gap: 10px;
+}
+.custom-field { display: flex; flex-direction: column; gap: 6px }
+.custom-field label { font-size: 0.75rem; color: var(--text-muted) }
+.custom-field select, .custom-field input {
+  width: 100%; background: var(--bg-raised); color: var(--text-primary);
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  padding: 10px 11px; font: inherit; font-size: 0.86rem;
+}
+.custom-field select:focus, .custom-field input:focus {
+  outline: none; border-color: var(--accent);
+}
+.custom-name-field { margin-top: 10px }
+.custom-actions {
+  position: sticky; bottom: 156px; z-index: 20;
+  display: flex; gap: 8px; flex-wrap: wrap;
+  background: linear-gradient(180deg, transparent, var(--bg-deep) 28%);
+  padding: 22px 0 8px;
+}
+.custom-primary, .custom-secondary {
+  border: none; border-radius: var(--radius-md); padding: 11px 16px;
+  cursor: pointer; font-weight: 600; font-size: 0.85rem;
+}
+.custom-primary { background: var(--accent); color: oklch(0.12 0.01 75) }
+.custom-secondary { background: var(--bg-raised); color: var(--text-secondary) }
+.custom-empty {
+  text-align: center; padding: 30px 16px; color: var(--text-muted);
+  border: 1px dashed var(--separator); border-radius: var(--radius-md);
+}
+.custom-run-toolbar {
+  width: min(760px, 100%); margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 12px 14px; background: var(--bg-surface);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
+}
+.custom-run-toolbar span { color: var(--text-secondary); font-size: 0.82rem }
+.control-bar.custom-hidden { display: none }
+
 /* ---------- Trend Chart ---------- */
 .trend-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--separator) }
 .trend-section h3 { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px; font-weight: 600 }
@@ -370,6 +433,9 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
   .top-btns { top: auto; bottom: 190px; right: 8px }
   .phase-tag { font-size: 0.7rem; padding: 2px 8px }
   .exercise-list { padding-bottom: 180px }
+  .custom-fields { grid-template-columns: 1fr 1fr }
+  .custom-field.action-field { grid-column: 1 / -1 }
+  .custom-actions { bottom: 10px }
 }
 
 /* ---------- Reduced Motion ---------- */
@@ -493,6 +559,7 @@ const PLAN_VERSION = 6;
 const LOG_KEY = 'knee_workout_logs';
 const STATE_KEY = 'knee_workout_state';
 const DEFAULT_PLAN_URL = 'plans/default.json';
+const CUSTOM_DAY = '自定义训练';
 
 // ===== STATE =====
 let currentDay = '';
@@ -511,6 +578,8 @@ let totalRounds = 1;
 let restRemaining = 0;
 let restInterval = null;
 let restCallback = null;
+let customEditing = false;
+let customDraft = [];
 
 // ===== AUDIO =====
 let audioCtx = null;
@@ -642,6 +711,7 @@ function getDays() { return PLAN ? Object.keys(PLAN.days) : []; }
 function getExercises() { return (PLAN && PLAN.days[currentDay]) ? PLAN.days[currentDay].exercises : []; }
 function getInitialSeconds(ex) {
     if (ex.duration > 0) return ex.duration;
+    if (ex.reps > 0) return Math.max(10, ex.reps * 3);
     const match = ex.sets.match(/(\d+)组x(\d+)/);
     if (match) return parseInt(match[2]) * 3;
     return 45;
@@ -649,6 +719,193 @@ function getInitialSeconds(ex) {
 function formatTime(s) {
     const m = Math.floor(s/60), sec = s%60;
     return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+// ===== CUSTOM WORKOUT =====
+function ensureCustomDay() {
+    if (!PLAN.days[CUSTOM_DAY]) PLAN.days[CUSTOM_DAY] = { rounds: 1, exercises: [] };
+}
+
+function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+}
+
+function getExerciseLibrary() {
+    if (!PLAN) return [];
+    const byName = new Map();
+    Object.entries(PLAN.days).forEach(([day, data]) => {
+        if (day === CUSTOM_DAY) return;
+        (data.exercises || []).forEach(ex => {
+            if (ex.name && !byName.has(ex.name)) byName.set(ex.name, ex);
+        });
+    });
+    return Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+}
+
+function getRepsFromExercise(ex) {
+    if (Number(ex.reps) > 0) return Number(ex.reps);
+    const numbers = String(ex.sets || '').match(/\d+/g);
+    return numbers ? Number(numbers[numbers.length - 1]) : 1;
+}
+
+function makeCustomDraft(ex) {
+    const library = getExerciseLibrary();
+    const inLibrary = library.some(item => item.name === ex.name);
+    return {
+        libraryName: inLibrary ? ex.name : '__custom__',
+        name: ex.name || '',
+        reps: getRepsFromExercise(ex),
+        duration: Math.max(0, Number(ex.duration) || 0)
+    };
+}
+
+function editCustomWorkout() {
+    customDraft = getExercises().map(makeCustomDraft);
+    customEditing = true;
+    stopTimer(); timerSeconds = 0; currentSet = 1; exercisePhase = 'work';
+    doneExercises.clear(); currentIndex = 0;
+    renderExercises(); updateControls(); updateProgress();
+}
+
+function customAddExercise() {
+    const first = getExerciseLibrary()[0];
+    customDraft.push(first ? {
+        libraryName: first.name,
+        name: first.name,
+        reps: getRepsFromExercise(first),
+        duration: Math.max(0, Number(first.duration) || 0)
+    } : {
+        libraryName: '__custom__', name: '', reps: 10, duration: 30
+    });
+    renderExercises();
+}
+
+function customRemoveExercise(index) {
+    customDraft.splice(index, 1);
+    renderExercises();
+}
+
+function customSelectExercise(index, name) {
+    const item = customDraft[index];
+    item.libraryName = name;
+    if (name === '__custom__') {
+        item.name = '';
+    } else {
+        const template = getExerciseLibrary().find(ex => ex.name === name);
+        if (template) {
+            item.name = template.name;
+            item.reps = getRepsFromExercise(template);
+            item.duration = Math.max(0, Number(template.duration) || 0);
+        }
+    }
+    renderExercises();
+}
+
+function customUpdateField(index, field, value) {
+    if (!customDraft[index]) return;
+    if (field === 'name') customDraft[index].name = value;
+    else customDraft[index][field] = Math.max(0, Number(value) || 0);
+}
+
+function renderCustomBuilder(container) {
+    if (customDraft.length === 0 && getExercises().length > 0) {
+        customDraft = getExercises().map(makeCustomDraft);
+    }
+    const library = getExerciseLibrary();
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-builder';
+    const rows = customDraft.map((item, index) => {
+        const options = library.map(ex =>
+            `<option value="${escapeHTML(ex.name)}"${item.libraryName === ex.name ? ' selected' : ''}>${escapeHTML(ex.name)}</option>`
+        ).join('');
+        const customName = item.libraryName === '__custom__' ? `
+            <div class="custom-field custom-name-field">
+                <label>自定义动作名称</label>
+                <input value="${escapeHTML(item.name)}" placeholder="输入动作名称"
+                    oninput="customUpdateField(${index}, 'name', this.value)">
+            </div>` : '';
+        return `
+            <div class="custom-row">
+                <div class="custom-row-head">
+                    <span class="custom-row-title">动作 ${index + 1}</span>
+                    <button class="custom-remove" onclick="customRemoveExercise(${index})">删除</button>
+                </div>
+                <div class="custom-fields">
+                    <div class="custom-field action-field">
+                        <label>选择动作</label>
+                        <select onchange="customSelectExercise(${index}, this.value)">
+                            ${options}
+                            <option value="__custom__"${item.libraryName === '__custom__' ? ' selected' : ''}>＋ 自定义动作</option>
+                        </select>
+                    </div>
+                    <div class="custom-field">
+                        <label>次数</label>
+                        <input type="number" min="0" step="1" value="${item.reps}"
+                            oninput="customUpdateField(${index}, 'reps', this.value)">
+                    </div>
+                    <div class="custom-field">
+                        <label>时长（秒）</label>
+                        <input type="number" min="0" step="5" value="${item.duration}"
+                            oninput="customUpdateField(${index}, 'duration', this.value)">
+                    </div>
+                </div>
+                ${customName}
+            </div>`;
+    }).join('');
+    const hasSaved = getExercises().length > 0;
+    wrapper.innerHTML = `
+        <div class="custom-intro">
+            <h2>自定义训练</h2>
+            <p>按顺序添加动作。可以从动作库选择，也可以添加自定义动作；次数用于记录，时长用于倒计时。</p>
+        </div>
+        ${rows || '<div class="custom-empty">还没有动作，点击下方“添加动作”开始创建。</div>'}
+        <div class="custom-actions">
+            <button class="custom-secondary" onclick="customAddExercise()">＋ 添加动作</button>
+            <button class="custom-primary" onclick="saveCustomWorkout()">保存并进入训练</button>
+            ${hasSaved ? '<button class="custom-secondary" onclick="cancelCustomEdit()">取消修改</button>' : ''}
+        </div>`;
+    container.appendChild(wrapper);
+}
+
+function saveCustomWorkout() {
+    if (customDraft.length === 0) { alert('请至少添加一个动作'); return; }
+    const library = getExerciseLibrary();
+    const exercises = [];
+    for (const item of customDraft) {
+        const name = String(item.name || '').trim();
+        if (!name) { alert('请填写自定义动作名称'); return; }
+        const template = item.libraryName === '__custom__'
+            ? null
+            : library.find(ex => ex.name === item.libraryName);
+        const reps = Math.max(0, Number(item.reps) || 0);
+        const duration = Math.max(0, Number(item.duration) || 0);
+        if (reps === 0 && duration === 0) {
+            alert('「' + name + '」的次数和时长不能同时为 0');
+            return;
+        }
+        const exercise = template ? JSON.parse(JSON.stringify(template)) : {
+            phase: '正式', weight: '', rest: 30, groupRest: 30,
+            tips: '按自己的节奏完成，保持动作稳定。', demo: ''
+        };
+        exercise.name = name;
+        exercise.reps = reps;
+        exercise.sets = reps > 0 ? reps + '次' : duration + '秒';
+        exercise.duration = duration;
+        exercises.push(exercise);
+    }
+    PLAN.days[CUSTOM_DAY] = { rounds: 1, exercises };
+    savePlan();
+    customEditing = false; customDraft = [];
+    currentIndex = 0; currentRound = 1; totalRounds = 1;
+    timerSeconds = 0; currentSet = 1; doneExercises.clear();
+    renderExercises(); updateControls(); updateProgress(); saveState();
+}
+
+function cancelCustomEdit() {
+    customEditing = false; customDraft = [];
+    renderExercises(); updateControls(); updateProgress();
 }
 
 // ===== INIT =====
@@ -663,6 +920,7 @@ async function init() {
         return;
     }
 
+    ensureCustomDay();
     applyPlanMeta();
 
     const restored = loadState();
@@ -671,6 +929,7 @@ async function init() {
         currentIndex = 0;
     }
     totalRounds = (PLAN.days[currentDay] && PLAN.days[currentDay].rounds) || 1;
+    customEditing = currentDay === CUSTOM_DAY && getExercises().length === 0;
 
     renderTabs(); renderExercises(); updateControls(); updateProgress();
     startSessionTimer();
@@ -706,6 +965,7 @@ function switchDay(day) {
     currentRound = 1; currentIndex = 0;
     stopTimer(); timerSeconds = 0; currentSet = 1; exercisePhase = 'work';
     doneExercises.clear();
+    customEditing = day === CUSTOM_DAY && getExercises().length === 0;
     renderTabs(); renderExercises(); updateControls(); updateProgress(); saveState();
 }
 
@@ -713,6 +973,17 @@ function renderExercises() {
     const list = document.getElementById('exerciseList');
     const exercises = getExercises();
     list.innerHTML = '';
+    if (currentDay === CUSTOM_DAY && customEditing) {
+        renderCustomBuilder(list);
+        return;
+    }
+    if (currentDay === CUSTOM_DAY) {
+        const toolbar = document.createElement('div');
+        toolbar.className = 'custom-run-toolbar';
+        toolbar.innerHTML = `<span>共 ${exercises.length} 个动作，可直接开始计时</span>
+            <button class="custom-secondary" onclick="editCustomWorkout()">✏️ 修改动作</button>`;
+        list.appendChild(toolbar);
+    }
     exercises.forEach((ex, i) => {
         const done = doneExercises.has(i), active = i === currentIndex;
         const card = document.createElement('div');
@@ -751,9 +1022,12 @@ function toggleExpand(i) { document.getElementById('card-' + i).classList.toggle
 
 function updateControls() {
     const exercises = getExercises();
+    const controlBar = document.querySelector('.control-bar');
+    controlBar.classList.toggle('custom-hidden', currentDay === CUSTOM_DAY && customEditing);
     document.getElementById('btnPrev').disabled = currentIndex <= 0;
     document.getElementById('btnNext').disabled = currentIndex >= exercises.length - 1;
     const btn = document.getElementById('btnStart');
+    btn.disabled = exercises.length === 0;
     if (timerRunning) { btn.textContent = '暂停'; btn.className = 'btn btn-start running'; }
     else { btn.textContent = doneExercises.has(currentIndex) ? '已完成 ✓' : '开始'; btn.className = 'btn btn-start'; }
 }
@@ -1065,7 +1339,7 @@ function handleImport(e) {
             const data = JSON.parse(reader.result);
             if (!data.days) throw new Error('Invalid plan format');
             data._version = PLAN_VERSION;
-            PLAN = data; savePlan(); applyPlanMeta();
+            PLAN = data; ensureCustomDay(); savePlan(); applyPlanMeta();
             currentDay = getDays()[0] || ''; currentIndex = 0; currentRound = 1;
             totalRounds = (PLAN.days[currentDay] && PLAN.days[currentDay].rounds) || 1;
             doneExercises.clear(); resetAll();
@@ -1087,9 +1361,13 @@ function openEditor() {
     toggleModal('editorModal');
 }
 
+function getEditorDays() {
+    return Object.keys(editorData.days).filter(day => day !== CUSTOM_DAY);
+}
+
 function renderEditorDays() {
     const container = document.getElementById('editorDayList');
-    const days = Object.keys(editorData.days);
+    const days = getEditorDays();
     container.innerHTML = days.map((day, di) => `
         <div class="day-item">
             <div class="day-header">
@@ -1106,12 +1384,13 @@ function renderEditorDays() {
 function editorAddDay() {
     const name = prompt('训练日名称（如"周五 核心日"）：');
     if (!name) return;
+    if (name === CUSTOM_DAY) { alert('“自定义训练”是系统页面，请换一个名称'); return; }
     editorData.days[name] = { rounds: 1, exercises: [] };
     renderEditorDays();
 }
 
 function editorDeleteDay(di) {
-    const days = Object.keys(editorData.days);
+    const days = getEditorDays();
     if (days.length <= 1) { alert('至少保留一个训练日'); return; }
     if (!confirm('确定删除「' + days[di] + '」？')) return;
     delete editorData.days[days[di]];
@@ -1119,7 +1398,7 @@ function editorDeleteDay(di) {
 }
 
 function editorEditDay(di) {
-    const dayKey = Object.keys(editorData.days)[di];
+    const dayKey = getEditorDays()[di];
     const dayData = editorData.days[dayKey];
     const json = JSON.stringify(dayData, null, 2);
     const newJson = prompt(`编辑「${dayKey}」的JSON数据：\n（修改后粘贴回来）`, json);
@@ -1132,7 +1411,7 @@ function editorEditDay(di) {
 
 function saveEditor() {
     editorData.name = document.getElementById('editorPlanName').value.trim() || '训练计划';
-    PLAN = editorData; savePlan(); applyPlanMeta();
+    PLAN = editorData; ensureCustomDay(); savePlan(); applyPlanMeta();
     if (!PLAN.days[currentDay]) { currentDay = getDays()[0] || ''; currentIndex = 0; }
     totalRounds = (PLAN.days[currentDay] && PLAN.days[currentDay].rounds) || 1;
     renderTabs(); renderExercises(); updateControls(); updateProgress();
