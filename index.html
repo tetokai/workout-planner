@@ -303,6 +303,24 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
   min-height: 80px; font-family: inherit; transition: box-shadow 0.2s ease;
 }
 .complete-content .log-section textarea:focus { outline: none; box-shadow: 0 0 0 2px var(--accent-soft) }
+.complete-content { max-width: 640px }
+.completion-form-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  margin-top: 14px;
+}
+.completion-field { display: flex; flex-direction: column; gap: 6px }
+.completion-field.full { grid-column: 1 / -1 }
+.completion-field label { font-size: 0.75rem; color: var(--text-muted) }
+.completion-field input, .completion-field select, .completion-field textarea {
+  width: 100%; background: var(--bg-raised); color: var(--text-primary);
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  padding: 10px 11px; font: inherit; font-size: 0.84rem;
+}
+.completion-field textarea { min-height: 72px; resize: vertical }
+.completion-field input:focus, .completion-field select:focus, .completion-field textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.completion-hint { color: var(--text-muted); font-size: 0.74rem; line-height: 1.5; margin-top: 10px }
 
 /* Log modal */
 .log-content h2 { color: var(--warn) }
@@ -311,6 +329,7 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
 .log-entry .log-date { font-size: 0.75rem; color: var(--text-muted) }
 .log-entry .log-day { font-size: 0.85rem; font-weight: 600; margin: 4px 0 }
 .log-entry .log-text { font-size: 0.82rem; color: var(--text-secondary); white-space: pre-wrap }
+.log-entry .log-meta { font-size: 0.74rem; color: var(--text-muted); line-height: 1.5; margin-top: 6px }
 .log-empty { text-align: center; color: var(--text-muted); padding: 30px; font-size: 0.85rem }
 
 /* Editor modal */
@@ -436,6 +455,8 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
   .custom-fields { grid-template-columns: repeat(3, 1fr) }
   .custom-field.action-field { grid-column: 1 / -1 }
   .custom-actions { bottom: 10px }
+  .completion-form-grid { grid-template-columns: 1fr }
+  .completion-field.full { grid-column: auto }
 }
 
 /* ---------- Reduced Motion ---------- */
@@ -517,10 +538,19 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
 <div class="stat-box"><div class="val" id="completeDuration">00:00</div><div class="lbl">训练时长</div></div>
 <div class="stat-box"><div class="val" id="completeCount">0</div><div class="lbl">完成动作</div></div>
 </div>
-<div class="log-section">
-<label>📝 记录今日训练感受（使用的重量、膝盖感受等）：</label>
-<textarea id="completeLog" placeholder="例：哑铃卧推用了8kg，膝盖今天感觉不错，半蹲没有不适..."></textarea>
+<div class="completion-form-grid">
+<div class="completion-field"><label>日类型</label><input id="completeDayType" placeholder="例如：公交/步行日"></div>
+<div class="completion-field"><label>计划时长（分钟）</label><input id="completePlannedMinutes" type="number" min="0" step="1" placeholder="可选"></div>
+<div class="completion-field"><label>步数</label><input id="completeSteps" type="number" min="0" step="1" placeholder="可选"></div>
+<div class="completion-field"><label>骑行公里</label><input id="completeCyclingKm" type="number" min="0" step="0.1" placeholder="可选"></div>
+<div class="completion-field"><label>完成度</label><select id="completeStatus"><option>已完成</option><option>部分完成</option></select></div>
+<div class="completion-field"><label>疲劳 1–5</label><select id="completeFatigue"><option value="">未填写</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div class="completion-field"><label>睡眠 1–5</label><select id="completeSleep"><option value="">未填写</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div class="completion-field"><label>RIR / 主观余力</label><input id="completeRir" placeholder="例如：2–3"></div>
+<div class="completion-field full"><label>训练后总体感受</label><textarea id="completeFeeling" placeholder="例如：动作稳定，左肩和腰部无不适"></textarea></div>
+<div class="completion-field full"><label>备注</label><textarea id="completeLog" placeholder="例如：使用重量、动作调整或下次注意事项"></textarea></div>
 </div>
+<div class="completion-hint">保存后可在“训练日志”中导出与项目 Excel 字段一致的 CSV。</div>
 <button class="modal-close" onclick="saveLogAndClose()">保存日志并关闭</button>
 </div>
 </div>
@@ -530,7 +560,7 @@ h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; letter-spacing: -0
 <div class="modal-content log-content">
 <h2>📓 训练日志</h2>
 <div class="log-entries" id="logEntries"></div>
-<div style="display:flex;gap:8px;margin-top:12px"><button class="small-btn" onclick="exportLogs()">📤 导出日志</button><button class="small-btn" onclick="importLogsFile()">📥 导入日志</button><button class="modal-close" onclick="toggleModal('logModal')" style="margin-top:0">关闭</button></div>
+<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><button class="small-btn" onclick="exportLogs()">📤 导出 Excel 兼容 CSV</button><button class="small-btn" onclick="exportLogsBackup()">💾 备份 JSON</button><button class="small-btn" onclick="importLogsFile()">📥 导入备份</button><button class="modal-close" onclick="toggleModal('logModal')" style="margin-top:0">关闭</button></div>
 </div>
 </div>
 
@@ -1242,17 +1272,120 @@ function resetAll() {
 // ===== MODALS =====
 function toggleModal(id) { document.getElementById(id).classList.toggle('show'); }
 
+function getLocalISODate(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function toISODate(value) {
+    const text = String(value || '');
+    const match = text.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+    if (match) return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? '' : getLocalISODate(parsed);
+}
+
+function getChineseWeekday(isoDate) {
+    if (!isoDate) return '';
+    const date = new Date(isoDate + 'T00:00:00');
+    return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()];
+}
+
+function parseDurationMinutes(duration) {
+    const parts = String(duration || '').split(':').map(Number);
+    if (parts.length !== 2 || parts.some(Number.isNaN)) return null;
+    return Math.round((parts[0] + parts[1] / 60) * 10) / 10;
+}
+
+function readOptionalNumber(id) {
+    const value = document.getElementById(id).value;
+    if (value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function getCompletedTrainingContent() {
+    const exercises = getExercises();
+    const completed = exercises.filter((ex, index) => doneExercises.has(index) && ex.phase !== '休息');
+    const source = completed.length > 0 ? completed : exercises.filter(ex => ex.phase !== '休息');
+    return source.map(ex => ex.name + (ex.sets ? ex.sets : '')).join('；');
+}
+
+function normalizeLog(log) {
+    const date = toISODate(log.date || log.createdAt);
+    const count = Number(log.count) || 0;
+    return {
+        date,
+        weekday: log.weekday || getChineseWeekday(date),
+        dayType: log.dayType || log.day || '',
+        trainingContent: log.trainingContent || (log.day ? `${log.day}（完成${count}个动作）` : ''),
+        plannedMinutes: Number.isFinite(Number(log.plannedMinutes)) && log.plannedMinutes !== null && log.plannedMinutes !== ''
+            ? Number(log.plannedMinutes) : null,
+        actualMinutes: Number.isFinite(Number(log.actualMinutes)) && log.actualMinutes !== null && log.actualMinutes !== ''
+            ? Number(log.actualMinutes) : parseDurationMinutes(log.duration),
+        steps: Number.isFinite(Number(log.steps)) && log.steps !== null && log.steps !== '' ? Number(log.steps) : null,
+        cyclingKm: Number.isFinite(Number(log.cyclingKm)) && log.cyclingKm !== null && log.cyclingKm !== ''
+            ? Number(log.cyclingKm) : null,
+        completion: log.completion || '已完成',
+        fatigue: log.fatigue || '',
+        sleep: log.sleep || '',
+        rir: log.rir || '',
+        feeling: log.feeling || '',
+        notes: log.notes || log.text || '',
+        duration: log.duration || formatTime(Math.round((Number(log.actualMinutes) || 0) * 60)),
+        count
+    };
+}
+
 function showComplete() {
     stopSessionTimer();
     document.getElementById('completeDuration').textContent = formatTime(sessionSeconds);
     document.getElementById('completeCount').textContent = doneExercises.size;
+    document.getElementById('completeDayType').value = currentDay;
+    document.getElementById('completePlannedMinutes').value = '';
+    document.getElementById('completeSteps').value = '';
+    document.getElementById('completeCyclingKm').value = '';
+    document.getElementById('completeStatus').value = '已完成';
+    document.getElementById('completeFatigue').value = '';
+    document.getElementById('completeSleep').value = '';
+    document.getElementById('completeRir').value = '';
+    document.getElementById('completeFeeling').value = '';
     document.getElementById('completeLog').value = '';
     beepSequence(5, 1047); toggleModal('completeModal');
 }
 
 async function saveLogAndClose() {
-    const t = document.getElementById('completeLog').value.trim();
-    await addLog({ date: new Date().toLocaleString('zh-CN'), day: currentDay, duration: formatTime(sessionSeconds), count: doneExercises.size, text: t || '' });
+    const now = new Date();
+    const date = getLocalISODate(now);
+    const feeling = document.getElementById('completeFeeling').value.trim();
+    const notes = document.getElementById('completeLog').value.trim();
+    await addLog({
+        schemaVersion: 2,
+        sessionId: globalThis.crypto && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        date,
+        createdAt: now.toISOString(),
+        weekday: getChineseWeekday(date),
+        dayType: document.getElementById('completeDayType').value.trim() || currentDay,
+        trainingContent: getCompletedTrainingContent(),
+        plannedMinutes: readOptionalNumber('completePlannedMinutes'),
+        actualMinutes: Math.round(sessionSeconds / 6) / 10,
+        steps: readOptionalNumber('completeSteps'),
+        cyclingKm: readOptionalNumber('completeCyclingKm'),
+        completion: document.getElementById('completeStatus').value,
+        fatigue: document.getElementById('completeFatigue').value,
+        sleep: document.getElementById('completeSleep').value,
+        rir: document.getElementById('completeRir').value.trim(),
+        feeling,
+        notes,
+        day: currentDay,
+        duration: formatTime(sessionSeconds),
+        count: doneExercises.size,
+        text: notes || feeling
+    });
     toggleModal('completeModal'); resetAll();
 }
 
@@ -1260,7 +1393,23 @@ async function openLog() {
     const logs = await getLogs();
     const container = document.getElementById('logEntries');
     container.innerHTML = logs.length === 0 ? '<div class="log-empty">暂无训练日志</div>' :
-        logs.map(l => `<div class="log-entry"><div class="log-date">${l.date}</div><div class="log-day">${l.day} · ${l.duration} · ${l.count}个动作</div><div class="log-text">${l.text || '(无笔记)'}</div></div>`).join('');
+        logs.map(raw => {
+            const l = normalizeLog(raw);
+            const metrics = [
+                l.fatigue ? `疲劳 ${l.fatigue}/5` : '',
+                l.sleep ? `睡眠 ${l.sleep}/5` : '',
+                l.rir ? `RIR ${l.rir}` : '',
+                l.steps !== null ? `${l.steps}步` : ''
+            ].filter(Boolean).join(' · ');
+            return `<div class="log-entry">
+                <div class="log-date">${escapeHTML(l.date)} ${escapeHTML(l.weekday)}</div>
+                <div class="log-day">${escapeHTML(l.dayType)} · ${escapeHTML(l.duration)} · ${l.count}个动作</div>
+                <div class="log-text">${escapeHTML(l.trainingContent || '(未记录训练内容)')}</div>
+                ${l.feeling ? `<div class="log-text">感受：${escapeHTML(l.feeling)}</div>` : ''}
+                ${l.notes ? `<div class="log-text">备注：${escapeHTML(l.notes)}</div>` : ''}
+                ${metrics ? `<div class="log-meta">${escapeHTML(metrics)}</div>` : ''}
+            </div>`;
+        }).join('');
     drawTrendChart(logs);
     toggleModal('logModal');
 }
@@ -1350,13 +1499,77 @@ function drawTrendChart(logs) {
     drawLine(counts, '#d4a574');
 }
 
-async function exportLogs() {
-    const logs = await getLogs();
-    const blob = new Blob([JSON.stringify(logs, null, 2)], {type: 'application/json'});
+function joinUnique(values) {
+    return Array.from(new Set(values.filter(Boolean))).join('；');
+}
+
+function sumOptional(values) {
+    const numbers = values.filter(value => value !== null && value !== '' && Number.isFinite(Number(value)));
+    if (numbers.length === 0) return null;
+    return Math.round(numbers.reduce((sum, value) => sum + Number(value), 0) * 10) / 10;
+}
+
+function mergeLogsByDate(logs) {
+    const grouped = new Map();
+    logs.map(normalizeLog).filter(log => log.date).forEach(log => {
+        if (!grouped.has(log.date)) grouped.set(log.date, []);
+        grouped.get(log.date).push(log);
+    });
+    return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, items]) => ({
+        date,
+        weekday: items[0].weekday || getChineseWeekday(date),
+        dayType: joinUnique(items.map(item => item.dayType)),
+        trainingContent: joinUnique(items.map(item => item.trainingContent)),
+        plannedMinutes: sumOptional(items.map(item => item.plannedMinutes)),
+        actualMinutes: sumOptional(items.map(item => item.actualMinutes)),
+        steps: [...items].reverse().find(item => item.steps !== null)?.steps ?? null,
+        cyclingKm: sumOptional(items.map(item => item.cyclingKm)),
+        completion: items.every(item => item.completion === '已完成') ? '已完成' : '部分完成',
+        fatigue: [...items].reverse().find(item => item.fatigue)?.fatigue || '',
+        sleep: [...items].reverse().find(item => item.sleep)?.sleep || '',
+        rir: joinUnique(items.map(item => item.rir)),
+        feeling: joinUnique(items.map(item => item.feeling)),
+        notes: joinUnique(items.map(item => item.notes))
+    }));
+}
+
+function csvEscape(value) {
+    if (value === null || value === undefined) return '';
+    const text = String(value);
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadBlob(blob, filename) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'training-logs-' + new Date().toISOString().slice(0,10) + '.json';
+    a.download = filename;
     a.click(); URL.revokeObjectURL(a.href);
+}
+
+async function exportLogs() {
+    const logs = await getLogs();
+    if (logs.length === 0) { alert('暂无训练日志可导出'); return; }
+    const headers = [
+        '日期', '星期', '日类型', '训练内容', '计划时长(分钟)', '实际时长(分钟)',
+        '步数', '骑行公里', '完成度', '疲劳1–5', '睡眠1–5', 'RIR/主观余力',
+        '训练后总体感受', '备注'
+    ];
+    const rows = mergeLogsByDate(logs).map(log => [
+        log.date, log.weekday, log.dayType, log.trainingContent, log.plannedMinutes,
+        log.actualMinutes, log.steps, log.cyclingKm, log.completion, log.fatigue,
+        log.sleep, log.rir, log.feeling, log.notes
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
+    downloadBlob(
+        new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8'}),
+        '训练日志-' + getLocalISODate() + '.csv'
+    );
+}
+
+async function exportLogsBackup() {
+    const logs = await getLogs();
+    const blob = new Blob([JSON.stringify(logs, null, 2)], {type: 'application/json'});
+    downloadBlob(blob, 'training-logs-backup-' + getLocalISODate() + '.json');
 }
 
 async function importLogsFile() {
