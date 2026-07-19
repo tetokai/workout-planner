@@ -987,7 +987,6 @@ async function init() {
     customEditing = currentDay === CUSTOM_DAY && getExercises().length === 0;
 
     renderTabs(); renderExercises(); updateControls(); updateProgress();
-    startSessionTimer();
     if (restored) document.getElementById('sessionTimer').textContent = formatTime(sessionSeconds);
 }
 
@@ -1102,6 +1101,7 @@ function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
     const ex = getExercises()[currentIndex];
     if (!ex) return;
+    startSessionTimer();
     if (timerSeconds <= 0) {
         timerSeconds = getInitialSeconds(ex);
         const match = ex.sets.match(/(\d+)组/);
@@ -1218,6 +1218,7 @@ function scrollToCurrent() {
 }
 
 function startSessionTimer() {
+    if (sessionInterval) return;
     sessionInterval = setInterval(() => {
         sessionSeconds++;
         document.getElementById('sessionTimer').textContent = formatTime(sessionSeconds);
@@ -1225,9 +1226,16 @@ function startSessionTimer() {
     }, 1000);
 }
 
+function stopSessionTimer() {
+    if (sessionInterval) clearInterval(sessionInterval);
+    sessionInterval = null;
+}
+
 function resetAll() {
-    stopTimer(); timerSeconds = 0; currentSet = 1; exercisePhase = 'work';
+    stopTimer(); stopSessionTimer();
+    timerSeconds = 0; currentSet = 1; exercisePhase = 'work';
     currentRound = 1; doneExercises.clear(); sessionSeconds = 0; currentIndex = 0;
+    document.getElementById('sessionTimer').textContent = formatTime(sessionSeconds);
     renderExercises(); updateControls(); updateProgress(); clearState();
 }
 
@@ -1235,6 +1243,7 @@ function resetAll() {
 function toggleModal(id) { document.getElementById(id).classList.toggle('show'); }
 
 function showComplete() {
+    stopSessionTimer();
     document.getElementById('completeDuration').textContent = formatTime(sessionSeconds);
     document.getElementById('completeCount').textContent = doneExercises.size;
     document.getElementById('completeLog').value = '';
